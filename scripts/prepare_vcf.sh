@@ -34,8 +34,13 @@ docker run --rm --platform linux/arm64 \
       | python3 scripts/limit_vcf.py --max-records "$3" \
       | bgzip -c > work/gnomad.sample.minimal.vcf.bgz
     tabix -f -p vcf work/gnomad.sample.minimal.vcf.bgz
+    bcftools index -f work/gnomad.sample.minimal.vcf.bgz
     bcftools view -h work/gnomad.sample.minimal.vcf.bgz >/dev/null
-    bcftools index -n work/gnomad.sample.minimal.vcf.bgz
+    # bcftools index stats enforce a .vcf.gz suffix even though BGZF itself
+    # does not; validate the required .vcf.bgz artifact through aliases.
+    ln -sf /workspace/work/gnomad.sample.minimal.vcf.bgz /tmp/gks-sample.vcf.gz
+    ln -sf /workspace/work/gnomad.sample.minimal.vcf.bgz.csi /tmp/gks-sample.vcf.gz.csi
+    bcftools index -n /tmp/gks-sample.vcf.gz
     bcftools view -H work/gnomad.sample.minimal.vcf.bgz \
       | python3 scripts/vcf_to_requests.py --accession "$4" --contig "$5" \
           --output work/requests.tsv --stats results/vcf_preparation.json
