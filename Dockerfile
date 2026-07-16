@@ -59,6 +59,27 @@ RUN cmake -S /scratch/src/ncbi-cxx/src -B /scratch/build -G Ninja \
  && cp -a /scratch/build/bin/. /opt/ncbi/bin/ \
  && cp -a /scratch/build/lib/. /opt/ncbi/lib/
 
+FROM ubuntu:22.04 AS bcftools-builder
+ARG TARGETARCH
+ARG DEBIAN_FRONTEND=noninteractive
+ARG HTSLIB_REF=1.20
+ARG BCFTOOLS_REF=1.20
+RUN test "$TARGETARCH" = arm64 \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends \
+    build-essential autoconf automake pkg-config git ca-certificates \
+    zlib1g-dev libbz2-dev liblzma-dev libcurl4-openssl-dev libssl-dev \
+ && rm -rf /var/lib/apt/lists/* \
+ && git clone --branch "$HTSLIB_REF" --depth=1 --recurse-submodules --shallow-submodules \
+      https://github.com/samtools/htslib.git /src/htslib \
+ && git clone --branch "$BCFTOOLS_REF" --depth=1 https://github.com/samtools/bcftools.git /src/bcftools \
+ && make -C /src/htslib -j4 \
+ && make -C /src/htslib install prefix=/opt/hts \
+ && make -C /src/bcftools -j4 HTSDIR=/src/htslib \
+ && make -C /src/bcftools install prefix=/opt/hts \
+ && /opt/hts/bin/bcftools --version \
+ && /opt/hts/bin/tabix --version
+
 FROM ubuntu:22.04 AS runtime
 ARG TARGETARCH
 ARG NCBI_CXX_TOOLKIT_REF=fe8144adf21fc19db6b9c8c96aa623965419e8bd
@@ -80,7 +101,9 @@ RUN test "$TARGETARCH" = arm64 \
  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /opt/ncbi /opt/ncbi
-ENV PATH="/opt/ncbi/bin:${PATH}" LD_LIBRARY_PATH=/opt/ncbi/lib
+COPY --from=bcftools-builder /opt/hts /opt/hts
+ENV PATH="/opt/ncbi/bin:/opt/hts/bin:${PATH}" \
+    LD_LIBRARY_PATH="/opt/ncbi/lib:/opt/hts/lib"
 WORKDIR /data
 RUN prime_cache -h >/dev/null \
  && asn_cache_test -h >/dev/null \

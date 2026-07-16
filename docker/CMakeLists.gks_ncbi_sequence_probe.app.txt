@@ -5,6 +5,7 @@ NCBI_begin_app(gks_ncbi_sequence_probe)
   NCBI_uses_toolkit_libraries(
     ncbi_xloader_asn_cache
     ncbi_xloader_genbank
+    ncbi_xcache_bdb
     xobjutil
   )
   NCBI_requires(BerkeleyDB)
