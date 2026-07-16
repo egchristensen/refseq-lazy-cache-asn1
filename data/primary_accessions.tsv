@@ -1,0 +1,3 @@
+profile	gnomad_contig	refseq_accession	gnomad_region	gnomad_url
+chrx	chrX	NC_000023.11	chrX:200000-1000000	https://storage.googleapis.com/gcp-public-data--gnomad/release/4.1/vcf/exomes/gnomad.exomes.v4.1.sites.chrX.vcf.bgz
+chr22	chr22	NC_000022.11	chr22:16000000-18000000	https://storage.googleapis.com/gcp-public-data--gnomad/release/4.1/vcf/exomes/gnomad.exomes.v4.1.sites.chr22.vcf.bgz

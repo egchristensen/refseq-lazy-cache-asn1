@@ -1,0 +1,12 @@
+# Generated experiment data and reports
+work/*
+!work/.gitkeep
+results/*
+!results/.gitkeep
+
+# Local tooling and editor state
+.DS_Store
+.vscode/
+__pycache__/
+*.pyc
+
