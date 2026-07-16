@@ -39,9 +39,13 @@ This workspace implements the NCBI-native GKS sequence backend experiment specif
 ```text
 TARGET_PLATFORM=linux/arm64
 NCBI_BUILD_JOBS=8
-NCBI_CXX_TOOLKIT_REF=203e594d7b4cad620d597a2bb8afef8e391e4eb8
+NCBI_CXX_TOOLKIT_REF=fe8144adf21fc19db6b9c8c96aa623965419e8bd
 GCC_MAJOR=12
 ```
+
+The plan's initial toolkit pin (`203e594d...`) was tried first and its native
+build log was preserved. It requires GCC 13, so the experiment uses the
+immediately preceding GCC 12-compatible toolkit revision shown above.
 
 Reduce build jobs before increasing Docker memory when memory pressure occurs.
 

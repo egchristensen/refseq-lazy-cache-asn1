@@ -1,0 +1,11 @@
+# Added by refseq-lazy-cache-asn1; modeled on the ASN-cache applications in
+# NCBI C++ Toolkit revision fe8144adf21fc19db6b9c8c96aa623965419e8bd.
+NCBI_begin_app(gks_ncbi_sequence_probe)
+  NCBI_sources(gks_ncbi_sequence_probe)
+  NCBI_uses_toolkit_libraries(
+    ncbi_xloader_asn_cache
+    ncbi_xloader_genbank
+    xobjutil
+  )
+  NCBI_requires(BerkeleyDB)
+NCBI_end_app()
