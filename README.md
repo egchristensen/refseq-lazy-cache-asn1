@@ -13,6 +13,53 @@ probe, stage a complete record as FASTA, and explicitly commit a validated full
 sequence to a writable SeqRepo. Production service packaging and snapshot
 lifecycle automation remain follow-on work.
 
+## Project status
+
+The repository currently contains a working native NCBI retrieval backend, two
+validated NCBI cache strategies, an experiment harness, and the first SeqRepo
+adapter/promotion command. It is a functional prototype and research artifact,
+not a production service or a replacement SeqRepo distribution.
+
+| Capability | Status |
+|---|---|
+| Native NCBI C++ Toolkit build on Apple silicon | Working and reproducible with Ubuntu 22.04, GCC 12, C++20, and `linux/arm64` |
+| Versioned RefSeq range retrieval | Working through `gks_ncbi_sequence_probe` with 0-based, half-open coordinates |
+| Pre-seeded ASN Cache | Working offline in a new `--network none` container |
+| GenBank BDB reader cache | Cold population, new-process reuse, contained-range replay, and offline replay demonstrated for the tested chrX record |
+| Hybrid ASN-first/GenBank-fallback loading | Working with explicit remote permission |
+| gnomAD REF validation | 100,000/100,000 eligible chrX records matched offline |
+| SeqRepo-first range adapter | Implemented; requires an existing local SeqRepo for the first lookup tier |
+| Complete-record promotion staging | Implemented and live-tested through FASTA/manifest generation |
+| Writable SeqRepo promotion | Implemented behind explicit `--write`; unit-tested but not yet exercised against a supplied writable SeqRepo instance |
+| Production API, concurrency, and snapshot lifecycle | Not implemented |
+
+The latest live adapter checks used the existing chromosome ASN Cache to return
+`NC_000023.11[253592:253600)` as `GGCTCCCA` in a network-disabled container.
+The promotion pipeline also resolved `NM_000546.6` through live GenBank,
+reconstructed all 2,512 bases in six bounded chunks, validated the result, and
+staged a complete FASTA without mutating SeqRepo. The repository test suite
+currently contains 14 passing tests, plus the native ARM image smoke test.
+
+## What this repository is meant to enable
+
+The intended consumer is a SeqRepo, GKS, VRS, or other sequence application that
+needs a small number of versioned RefSeq ranges before those records exist in its
+local sequence archive. The bridge is meant to:
+
+1. accept a versioned RefSeq accession and exact `[start, end)` interval;
+2. return only the requested IUPAC bases to the caller;
+3. prefer an existing SeqRepo copy when available;
+4. otherwise resolve the range through deterministic ASN Cache, lazy GenBank BDB
+   cache, or explicitly permitted remote GenBank access;
+5. preserve identifiers and provenance across that lookup;
+6. promote a frequently used record into SeqRepo only after reconstructing and
+   validating the complete sequence represented by the RefSeq accession.
+
+It is deliberately **not** meant to assign a full RefSeq accession to a stored
+fragment, reproduce RefSeq annotations inside SeqRepo, silently enable remote
+access, or claim byte-range upstream transfers when NCBI actually resolves a
+larger record/blob.
+
 ## Why bridge these systems?
 
 RefSeq and SeqRepo solve related but different problems:
