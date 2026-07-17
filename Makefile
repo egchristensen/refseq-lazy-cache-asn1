@@ -3,7 +3,7 @@ TARGET_PLATFORM ?= linux/arm64
 NCBI_BUILD_JOBS ?= 8
 NCBI_CXX_TOOLKIT_REF ?= fe8144adf21fc19db6b9c8c96aa623965419e8bd
 
-.PHONY: preflight build test smoke
+.PHONY: preflight build test smoke bridge-fetch
 
 preflight:
 	bash scripts/preflight.sh
@@ -20,3 +20,7 @@ test:
 
 smoke:
 	bash tests/smoke.sh
+
+bridge-fetch:
+	python3 scripts/seqrepo_bridge.py --mode asn fetch \
+	  NC_000023.11 253592 253600

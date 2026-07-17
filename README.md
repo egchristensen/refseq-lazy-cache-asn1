@@ -6,9 +6,12 @@ sequence ranges an application asks for, let the NCBI C++ Toolkit reuse the
 underlying RefSeq record locally, and promote useful records into SeqRepo when
 long-term, digest-addressed storage is justified.
 
-The project is an experimentally validated retrieval and cache foundation. It
-does **not yet write into SeqRepo**. The proposed SeqRepo adapter and promotion
-workflow described below are the intended next implementation phase.
+The project is an experimentally validated retrieval and cache foundation.
+`scripts/seqrepo_bridge.py` now implements the first adapter and guarded
+promotion workflow. It can read an existing SeqRepo first, fall back to the NCBI
+probe, stage a complete record as FASTA, and explicitly commit a validated full
+sequence to a writable SeqRepo. Production service packaging and snapshot
+lifecycle automation remain follow-on work.
 
 ## Why bridge these systems?
 
@@ -160,6 +163,53 @@ inspection, and interoperability. In both cases, validate sequence length,
 alphabet, accession version, aliases, and digest before committing a SeqRepo
 snapshot.
 
+## Adapter commands
+
+Fetch one range from SeqRepo when present, with ASN Cache fallback:
+
+```bash
+python3 scripts/seqrepo_bridge.py --mode asn \
+  fetch NC_000023.11 253592 253600 \
+  --seqrepo-root /path/to/seqrepo/snapshot
+```
+
+If `--seqrepo-root` is omitted, the command uses the selected NCBI loader
+directly. ASN-only Docker fallback runs with `--network none`. `genbank` mode
+requires both `--mode genbank` and `--allow-remote`; hybrid mode permits remote
+fallback only when `--allow-remote` is present.
+
+Stage and validate a complete record without mutating SeqRepo:
+
+```bash
+python3 scripts/seqrepo_bridge.py --mode asn \
+  promote NC_000023.11 \
+  --fasta-output work/NC_000023.11.fasta
+```
+
+Promotion fetches the resolved Bioseq in bounded one-million-residue chunks,
+checks ordering, length, and alphabet, and emits a manifest. The FASTA represents
+the complete accession, never an individual requested range.
+
+Commit to a deliberately writable SeqRepo only with the explicit `--write` flag:
+
+```bash
+python3 scripts/seqrepo_bridge.py --mode asn \
+  promote NC_000023.11 \
+  --seqrepo-root /path/to/seqrepo/master \
+  --write
+```
+
+The bridge opens SeqRepo with `writeable=True`, refuses an existing alias that
+resolves to different bases, stores the complete sequence with versioned RefSeq
+aliases, commits, and reads the full sequence back for verification. Published
+read-only snapshots should never be passed to this command; promote into a
+writable working instance and use SeqRepo's snapshot process afterward.
+
+The Python package is intentionally an adapter-only dependency and is not
+silently installed on the macOS host. Install `biocommons.seqrepo` and its
+`bgzip` requirement in a dedicated environment used for SeqRepo reads/writes.
+NCBI-only fetching does not import SeqRepo unless `--seqrepo-root` is supplied.
+
 ## Intended iterative user experience
 
 The desired behavior is iterative at the **request layer**, even when NCBI or
@@ -259,21 +309,31 @@ Generated caches, VCF slices, and raw logs remain under `work/` and `results/`
 and are intentionally excluded from Git. The measured results, limitations, and
 toolkit revision deviation are recorded in `results/report.md` locally.
 
-## What remains to implement for SeqRepo
+## Promotion safety and remaining work
 
-The next phase should add a small, explicit adapter rather than embedding SeqRepo
-logic into every caller:
+The adapter establishes a small integration boundary rather than embedding
+SeqRepo logic into every caller. It currently provides:
 
-1. Define a stable `fetch(accession_version, start, end)` API and provenance response.
-2. Check a configured SeqRepo snapshot first, then ASN Cache, BDB, and permitted remote fallback.
-3. Return slices directly from `CSeqVector` without temporary FASTA files.
-4. Add a promotion command that exports and validates the complete sequence before
-   calling SeqRepo's writable storage API or CLI.
-5. Register versioned RefSeq aliases and verify that SeqRepo's computed digest and
-   sequence length describe the complete record.
-6. Make promotion transactional and idempotent; never mutate a published read-only snapshot.
-7. Add cross-backend tests proving identical bases for SeqRepo, ASN Cache, BDB,
+- a stable versioned-accession and 0-based half-open range contract;
+- SeqRepo-first lookup with `refseq`, legacy `NCBI`, and unqualified lookup;
+- ASN, GenBank, and hybrid NCBI fallback through the native probe;
+- bounded complete-record reconstruction;
+- dry-run FASTA/manifest output by default;
+- explicit writable promotion with conflict and post-commit verification;
+- conservative alias conversion for RefSeq, GI, and GPP identifiers.
+
+Remaining production work is:
+
+1. Replace per-command Docker startup with a persistent local RPC/service boundary.
+2. Pin and package a supported SeqRepo adapter environment without changing the
+   native NCBI builder image.
+3. Add locking and a working-copy/snapshot transaction around concurrent promotions.
+4. Persist promotion manifests with toolkit revision, SeqRepo version, digest,
+   and cache provenance.
+5. Add cross-backend tests proving identical bases for SeqRepo, ASN Cache, BDB,
    and remote GenBank over the same coordinates.
+6. Add retry, quota, and admission policies for remote full-record materialization.
+7. Benchmark complete-record promotion cost and subsequent SeqRepo slicing.
 8. If fragment persistence is needed, design a separate coordinate-aware fragment
    schema rather than overloading SeqRepo's full-sequence alias model.
 
