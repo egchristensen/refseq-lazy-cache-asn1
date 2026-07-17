@@ -13,6 +13,10 @@ probe, stage a complete record as FASTA, and explicitly commit a validated full
 sequence to a writable SeqRepo. Production service packaging and snapshot
 lifecycle automation remain follow-on work.
 
+For a scrollable results-first tour with captured outputs, open
+[`DEMO.ipynb`](DEMO.ipynb). For the complete reproducible command walkthrough,
+use [`DEMO.md`](DEMO.md).
+
 ## Project status
 
 The repository currently contains a working native NCBI retrieval backend, two
